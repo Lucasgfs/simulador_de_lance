@@ -17,7 +17,7 @@ imagens = {
 def exibir_imagem(produto):
     imagem_path = imagens.get(produto)
     if imagem_path:
-         st.image(imagem_path, use_column_width=True)
+         st.image(imagem_path, use_container_width=True)
     else:
          st.write("Imagem não disponível")
 
