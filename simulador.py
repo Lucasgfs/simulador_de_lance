@@ -17,7 +17,7 @@ imagens = {
 def exibir_imagem(produto):
     imagem_path = imagens.get(produto)
     if imagem_path:
-         st.image(imagem_path, use_container_width=True)
+         st.image(imagem_path, use_column_width= True) #use_container_width
     else:
          st.write("Imagem não disponível")
 
@@ -187,7 +187,6 @@ st.write('Seguro:  {:.5f}'.format(seguro),"%")
 
 
 st.write(f" Prazo do cliente :", format(prazo_do_cliente), ' meses.')
-st.write(cet)
 
 
 
@@ -202,30 +201,33 @@ st.write ('# Projeção de Lance:')
 #CALCULANDO LANCE:
 
 #Criando colunas para tipos de lance:
+
+#Criando Segmentador com tipo de lance#
+escolhe_lance = ("Lance Parcela Integral","Lance Parcela Reduzida")
 col1, col2, col3 = st.columns(3)
-with col1:
-    valor_lance = st.number_input("Valor Total de Lance R$ ", min_value=0, max_value = int(cet))
-    if valor_lance > cet:
+
+with col1: # Coluna onde o usuário irá inserir o valor do lance
+    valor_lance = st.number_input("Valor Total de Lance R$ ", min_value=0, max_value = int(credito))
+    if valor_lance > credito:
         st.write("Lance Maior que o Crédito")
 
-with col2:
-    parcela_de_lance = st.number_input("Quantidade Parcelas de Lance:", min_value=0, max_value=prazo)
-    if parcela_de_lance> prazo:
-        st.write("Lance Maior que o Prazo.")
+with col2:#Percentual de lance embutido para retirar do crédito do CET (máx 30%)
+    embutido = st.number_input("Percentual Embutido",min_value=0, max_value= 30)
 
-with col3:
-    embutido = st.number_input("Lance Embutido",min_value=0, max_value= int(credito*0.3))
+with col3: #Criando Segmentador com tipo de lance
+    tipo_lance = st.selectbox("Tipo de Lace:",escolhe_lance ) #escolher reduzida ou parcela_integral
+    
 
-
+#CALCULADORA DE LANCE BASEADO NA QUANTIDADE DE PARCELAS DE LANCE
 def lance (qtd_plc,tipo_lance):
-    if plano == "reduzido" and tipo_lance == "reduzida":
-        valor_lance = parcela_cliente * qtd_plc
-    elif plano == "meia_parcela" or plano =="reduzido" and tipo_lance =="parcela_integral":
-        valor_lance = parcela_int* qtd_plc
+    if plano == "reduzido" and tipo_lance == "Lance Parcela Reduzida":
+        valor_lance_pcl = parcela_cliente * qtd_plc
+    elif plano == "meia_parcela" or plano =="reduzido" and tipo_lance =="Lance Parcela Integral":
+        valor_lance_pcl = parcela_int* qtd_plc
     else:
-        valor_lance = parcela_int * qtd_plc
+        valor_lance_pcl = parcela_int * qtd_plc
 
-    return valor_lance    
+    return valor_lance_pcl    
 
 def valor_de_lance (valor_lance):
     try:
@@ -233,36 +235,68 @@ def valor_de_lance (valor_lance):
     except ZeroDivisionError:
         return 0
   
-
+#converte lance em parcelas
 lance_convertido = valor_de_lance(valor_lance)
 
 
 
-#Criando Segmentador com tipo de lance
+qtd_plc = lance_convertido #quantidade de parcelas ofertadas para o lance
+
+tipo_lance = escolhe_lance #escolher reduzida ou parcela_integral
+
+total_lance = valor_lance #lance(qtd_plc, tipo_lance)
+
+
+#DILUINDO LANCE
+#Fazer as duas modalidades de diluição:
+#DILUIÇÃO TOTAL: abate o lance do custo efetivo total e divide pelo prazo restante do cliente
+#DILUIÇÃO PARCIAL: abate metade do lance em prazo e o restante abate no valor da parcela
+
+mes_lance = 1
+
+#DILUIÇÃO TOTAL DO LANCE NO VALOR DA PARCELA
+def diluicao_total (mes_lance, total_lance):
+    prazo_restante = prazo_do_cliente - mes_lance
+    dif_parcela_reduzida = (parcela_int - parcela_cliente)*mes_lance / prazo_restante
+    nova_parcela = (cet - total_lance - dif_parcela_reduzida) /prazo_restante#parcela_int - ((total_lance/prazo_restante) - dif_parcela_reduzida)
+    return nova_parcela, prazo_restante
+
+nova_parcela, prazo_restante = diluicao_total (mes_lance, total_lance) #diluição 100%
+
+#REDUÇÃO METADE NO PRAZO E METADE NO VALOR DA PARCELA
+def diluicao_parcial (mes_lance, total_lance):
+    parcelas_a_abater = int(round((total_lance/2)/parcela_int))
+    prazo_restante_dil = prazo_do_cliente - mes_lance - parcelas_a_abater
+    dif_parcela_reduzida = (parcela_int - parcela_cliente)*mes_lance / prazo_restante_dil
+    nova_parcela_dil = (cet - (total_lance/2) - dif_parcela_reduzida) /prazo_restante # parcela_int - (((total_lance/2)/prazo_restante_dil) - dif_parcela_reduzida)
+    return nova_parcela_dil, prazo_restante_dil
+
+nova_parcela_dil, prazo_restante_dil = diluicao_parcial(mes_lance, total_lance) #50% do lance no prazo e 50% no valor da parcela
+
+st.write(cet)
+
+
+
+
+#print (type(taxa))
+#print (type(seguro))
+
+
+#CRIANDO BOTÃO PARA EXIBIR OS CÁLCULOS:
 col4, col5 = st.columns(2)
-escolhe_lance = ("Lance Parcela Integral","Lance Parcela Reduzida")
 with col4:
-    tipo_lance = st.selectbox("Tipo de Lace:",escolhe_lance ) #escolher reduzida ou parcela_integral
-
+    botao = st.button('Calcular')
 with col5:
-    st.write("### Lance Convertido")
-    st.write( format(lance_convertido))
-
-
-qtd_plc = 30 #quantidade de parcelas ofertadas para o lance
-tipo_lance = "reduzida" #escolher reduzida ou parcela_integral
-
-total_lance = lance(qtd_plc, tipo_lance)
+    botao2 = st.button('Ocultar')
 
 
 
-
-
-
-
-
-
-
-st.write ('# Parcela pós contemplação')
-print (type(taxa))
-print (type(seguro))
+if botao == True:
+    st.write("Exibir Mensagem")
+    st.write (' # Valor de Lance')
+    st.write (' # Parcela pós contemplação ')
+    st.write(f"Parcela diluição 50% ", format(nova_parcela))
+    st.write(f"Parcelas diluidas de ", format(nova_parcela_dil))
+    st.write(' # Prazo Restante ')
+    st.write(f"Prazo restante de:" , format(prazo_restante), "meses")
+    st.write(f"Prazo restante de:" , format(prazo_restante_dil), "meses")
